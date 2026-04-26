@@ -26,14 +26,49 @@ Ogni tabella deve avere un commento nel dizionario dati, così come ogni sua col
 
 Quando una tabella è protetta da una *editioning view* — un meccanismo Oracle per la ridefinizione basata su edizioni — viene suffissata con `_eb`, e la vista che la sovrasta prende il nome originale senza suffisso. In questo modo il codice applicativo che fa riferimento alla vista non deve essere modificato durante la transizione.
 
-Se il progetto ha più schemi o moduli che condividono lo stesso database, è opportuno prefissare i nomi degli oggetti con un'abbreviazione del progetto o del modulo, per evitare conflitti e chiarire l'appartenenza.
+#### Prefissi funzionali
+
+I nomi delle tabelle possono essere preceduti da un prefisso che ne identifica il dominio funzionale all'interno dell'applicazione. Questo meccanismo è distinto dal prefisso di progetto (che identifica l'ownership dello schema) e serve invece a classificare le tabelle per scopo, rendendo immediatamente leggibile la natura di un oggetto anche senza consultare documentazione esterna.
+
+I prefissi funzionali definiti per questo progetto sono i seguenti:
+
+| Prefisso | Ambito | Esempi |
+|---|---|---|
+| `adm_` | Gestione amministrativa di utenti, ruoli e permessi | `adm_users`, `adm_roles`, `adm_role_grants` |
+| `cfg_` | Tabelle di configurazione applicativa | `cfg_parameters`, `cfg_feature_flags`, `cfg_email_templates` |
+| `wrk_` | Tabelle di appoggio per elaborazioni intermedie, non temporanee | `wrk_import_staging`, `wrk_reconciliation_data` |
+| `log_` | Tabelle di audit, tracciamento eventi e log applicativi | `log_user_actions`, `log_api_calls`, `log_errors` |
+| `his_` | Storico dei dati di business: versioni precedenti di record modificati o cancellati | `his_employees`, `his_contract_lines` |
+| `arc_` | Archivio di dati conclusi o scaduti, spostati dalle tabelle operative per motivi di performance | `arc_orders`, `arc_invoices` |
+| `ref_` | Tabelle di decodifica e lookup: domini di valori ammessi, codici, categorie | `ref_countries`, `ref_order_statuses`, `ref_currencies` |
+| `ext_` | Dati ricevuti da sistemi esterni, in attesa di validazione o integrazione | `ext_crm_contacts`, `ext_erp_orders` |
+| `rpt_` | Tabelle pre-aggregate o denormalizzate a supporto della reportistica | `rpt_monthly_sales`, `rpt_user_activity_summary` |
+| `err_` | Tabelle di raccolta degli errori funzionali, usate da processi batch o pipeline ETL | `err_import_rows`, `err_reconciliation` |
+| `xrf_` | Tabelle di cross-reference: mappature tra identificativi di sistemi diversi | `xrf_crm_erp_customers`, `xrf_legacy_product_codes` |
+
+Alcuni di questi prefissi richiedono una distinzione che non è sempre immediata. La differenza tra `log_` e `err_` sta nel destinatario: `log_` raccoglie eventi regolari del flusso applicativo (accessi, chiamate API, transizioni di stato), mentre `err_` raccoglie fallimenti funzionali che richiedono analisi o reprocessing — tipicamente righe scartate da un processo batch. La differenza tra `his_` e `arc_` sta invece nel trigger dello spostamento: `his_` registra ogni versione di un record nel corso della sua vita operativa (storico delle modifiche), mentre `arc_` raccoglie record che hanno completato il loro ciclo di vita e vengono rimossi dalle tabelle operative per motivi di performance o data retention.
+
+La differenza tra `cfg_` e le normali tabelle di dominio non è sempre ovvia, ma il criterio è che una tabella `cfg_` contiene dati che modificano il *comportamento* dell'applicazione — parametri, soglie, template, flag — e che vengono letti dalla logica applicativa per prendere decisioni, non elaborati come dati di business. Le tabelle `wrk_` invece contengono dati transitori legati a un processo specifico: a differenza delle Global Temporary Table, persistono tra le sessioni e possono essere partizionate o indicizzate, ma il loro ciclo di vita è subordinato all'elaborazione che le produce. Le tabelle `ext_` sono concettualmente simili alle `wrk_`, ma il dato ha origine esterna e non è stato ancora validato: trattarle separatamente chiarisce la responsabilità sulla qualità del dato.
+
+Quando si usa sia un prefisso funzionale che uno di progetto, il prefisso di progetto viene per primo: `sct_adm_users`, `sct_cfg_parameters`.
 
 | Situazione | Esempio |
 |---|---|
 | Tabella standard | `employees` |
 | Tabella con una sola riga | `configuration` |
 | Tabella con editioning view | `countries_eb` |
-| Tabella con prefisso di progetto | `sct_contracts` |
+| Tabella amministrativa | `adm_roles` |
+| Tabella di configurazione | `cfg_parameters` |
+| Tabella di lavoro/appoggio | `wrk_import_staging` |
+| Tabella di log/audit | `log_user_actions` |
+| Storico modifiche | `his_employees` |
+| Archivio dati conclusi | `arc_orders` |
+| Decodifica/lookup | `ref_countries` |
+| Dati da sistema esterno | `ext_crm_contacts` |
+| Tabella reportistica | `rpt_monthly_sales` |
+| Errori batch | `err_import_rows` |
+| Cross-reference | `xrf_crm_erp_customers` |
+| Prefisso progetto + funzionale | `sct_cfg_parameters` |
 
 ### Viste
 
@@ -60,17 +95,19 @@ I constraint di integrità seguono schemi di nomenclatura precisi, che ne rendon
 | Tipo di constraint | Schema del nome | Esempi |
 |---|---|---|
 | Primary Key | `<tabella>_pk` | `employees_pk`, `departments_pk` |
-| Foreign Key | `<tabella>_<tabella_riferita>_fk[n]` | `empl_dept_fk`, `sct_icmd_ic_fk1` |
-| Unique Key | `<tabella>_<ruolo>_uk[n]` | `employees_name_uk`, `sct_contracts_uk` |
-| Check Constraint | `<tabella>_<colonna/ruolo>_ck[n]` | `employees_salary_min_ck`, `orders_mode_ck` |
+| Foreign Key | `<tabella>_fk[n]_<tabella_riferita>` | `empl_fk_dept`, `sct_icmd_fk1_ic` |
+| Unique Key | `<tabella>_uk[n]_<colonna>` | `employees_uk_name`, `sct_uk_contracts` |
+| Not Null Constraint | `<tabella>_nn_<colonna>` | `employees_nn_id` |
+| Check Constraint Colonna| `<tabella>_ck[n]_<colonna>` | `employees_ck_salary`, `orders_ck_mode` |
+| Check Constraint Tabella| `<tabella>_ck[n]` | `departments_ck`, `clients_ck1` |
 
 Il numero opzionale in fondo al nome (es. `_fk1`, `_uk2`) si usa quando esistono più constraint dello stesso tipo sulla stessa tabella, per disambiguarli.
 
 ### Indici
 
-Gli indici che servono un constraint — primary key, unique key o foreign key — prendono lo stesso nome del constraint corrispondente. Per tutti gli altri indici, il nome deve riflettere la tabella e le colonne indicizzate (o lo scopo dell'indice), con il suffisso `_idx`.
+Gli indici che servono un constraint — primary key, unique key o foreign key — prendono lo stesso nome del constraint corrispondente. Per tutti gli altri indici, il nome deve riflettere la tabella e le colonne indicizzate (o lo scopo dell'indice), con òa dicitura `idx`.
 
-Esempi: `employees_last_name_idx`, `orders_status_created_at_idx`.
+Esempi: `employees_idx_last_name`, `orders_status_idx_created_at`.
 
 ### Sequenze
 
@@ -85,26 +122,90 @@ Il nome di una sequenza identifica la tabella per cui genera i valori della chia
 
 I sinonimi servono a referenziare oggetti di schemi esterni senza dover qualificare ogni riferimento con il nome dello schema. La regola è che il sinonimo deve avere lo stesso nome dell'oggetto referenziato: non si usano i sinonimi per rinominare gli oggetti, ma solo per renderli accessibili dallo schema corrente senza prefisso.
 
-### Trigger DML e Instead-of
+### Trigger DML, Instead-of e Compound
 
-Per i trigger DML esistono due convenzioni accettate, tra cui è possibile scegliere in modo coerente all'interno del progetto.
+#### Trigger semplici
 
-La prima usa un nome composto dal nome dell'oggetto su cui agisce il trigger e da un codice che identifica il momento e gli eventi che lo scatenano:
+Per i trigger DML semplici — quelli che si scatenano in un singolo punto di timing — esistono due convenzioni accettate, tra cui è possibile scegliere in modo coerente all'interno del progetto.
+
+La prima usa un nome composto dal nome della tabella e da un codice che identifica il momento di firing e gli eventi coinvolti:
 
 | Codice | Significato |
 |---|---|
 | `_br_iud` | Before Row su Insert, Update e Delete |
 | `_ar_iud` | After Row su Insert, Update e Delete |
+| `_bs_iud` | Before Statement su Insert, Update e Delete |
+| `_as_iud` | After Statement su Insert, Update e Delete |
 | `_io_id` | Instead of su Insert e Delete |
 
-La seconda usa il nome dell'oggetto, una descrizione dell'attività svolta dal trigger e il suffisso `_trg`.
+Il codice può essere adattato agli eventi effettivi del trigger: un trigger che agisce solo su Insert e Update userà `_br_iu` anziché `_br_iud`. Questo rende il nome auto-documentante rispetto al comportamento del trigger.
+
+La seconda convenzione usa il nome della tabella, una descrizione dell'attività svolta e il suffisso `_trg`, ed è preferibile quando il trigger ha uno scopo semanticamente definito che va oltre i semplici eventi che lo scatenano.
 
 | Convenzione | Esempio |
 |---|---|
 | Prima (evento) | `employees_br_iud` |
 | Seconda (attività) | `orders_audit_trg`, `orders_journal_trg` |
 
-### Trigger di sistema
+#### Trigger compound
+
+I trigger compound — introdotti in Oracle 11g — sono la soluzione preferita ogni volta che la logica richiede di agire in più punti del ciclo di vita di un'istruzione DML. Un trigger compound è un unico oggetto del database che dichiara sezioni distinte per ciascuno dei quattro timing point: `BEFORE STATEMENT`, `BEFORE EACH ROW`, `AFTER EACH ROW` e `AFTER STATEMENT`. Non è obbligatorio implementarle tutte: si dichiarano solo quelle necessarie.
+
+Questa struttura risolve elegantemente due problemi ricorrenti con i trigger tradizionali. Il primo è il cosiddetto *mutating table error* (ORA-04091): un trigger `BEFORE EACH ROW` non può leggere la stessa tabella su cui sta scattando, ma un trigger compound può raccogliere i dati riga per riga nella sezione `AFTER EACH ROW` e poi elaborarli in blocco nella sezione `AFTER STATEMENT`, dopo che Oracle ha terminato le modifiche. Il secondo problema è l'efficienza: invece di eseguire una DML per ogni riga elaborata, il trigger compound può accumulare i dati in una collection definita nella sezione globale — visibile a tutte le sezioni — e poi eseguire una singola operazione bulk nella sezione di statement.
+
+Il nome di un trigger compound usa il suffisso `_cmpd_trg`, preceduto dal nome della tabella. Se il progetto adotta la convenzione basata sugli eventi, è possibile usare il suffisso `_cmpd_iud` per indicare esplicitamente gli eventi coinvolti.
+
+| Convenzione | Esempio |
+|---|---|
+| Con suffisso descrittivo | `employees_cmpd_trg` |
+| Con suffisso evento | `employees_cmpd_iud` |
+
+Un esempio tipico di struttura compound è il seguente:
+
+```sql
+create or replace trigger employees_cmpd_trg
+   for insert or update or delete on employees
+   compound trigger
+
+   -- sezione globale: visibile a tutte le sezioni del trigger
+   t_audit_rows adm_audit_log_ct := adm_audit_log_ct();
+
+   before statement is
+   begin
+      -- logica pre-istruzione, es. controlli di sessione
+      null;
+   end before statement;
+
+   after each row is
+   begin
+      -- accumula i dati di audit riga per riga
+      t_audit_rows.extend;
+      t_audit_rows(t_audit_rows.last) := adm_audit_log_ot(
+         in_table_name  => 'EMPLOYEES',
+         in_operation   => case
+                              when inserting then 'I'
+                              when updating  then 'U'
+                              when deleting  then 'D'
+                           end,
+         in_changed_by  => sys_context('userenv', 'session_user'),
+         in_changed_at  => systimestamp
+      );
+   end after each row;
+
+   after statement is
+   begin
+      -- inserimento bulk dei dati di audit
+      forall i in indices of t_audit_rows
+         insert into adm_audit_log values t_audit_rows(i);
+   end after statement;
+
+end employees_cmpd_trg;
+/
+```
+
+La sezione globale del trigger è il punto in cui si dichiara la collection usata per l'accumulo e qualsiasi altra variabile condivisa tra le sezioni. È importante che questa collection venga inizializzata nella sezione `BEFORE STATEMENT` se il trigger può essere invocato più volte nella stessa sessione (ad esempio in loop su bulk operations), per evitare di accumulare dati di esecuzioni precedenti.
+
+#### Trigger di sistema
 
 I trigger di sistema — quelli legati a eventi DDL o di sessione — sono nominati con il nome dell'evento, una descrizione dell'attività e il suffisso `_trg`.
 
@@ -121,9 +222,9 @@ I tipi oggetto Oracle (`OBJECT`) usano il nome del concetto che rappresentano al
 
 ### Tabelle temporanee globali
 
-Le Global Temporary Table seguono le stesse regole delle tabelle normali. Possono essere suffissate con `_tmp` per distinguerle visivamente dalle tabelle permanenti, ma il suffisso non è obbligatorio se il contesto è chiaro.
+Le Global Temporary Table seguono le stesse regole delle tabelle normali. Devono essere prefissate con `tmp_` per distinguerle visivamente dalle tabelle permanenti.
 
-Esempi: `employees_tmp`, `contracts_tmp`.
+Esempi: `tmp_employees`, `tmp_contracts`.
 
 ---
 
