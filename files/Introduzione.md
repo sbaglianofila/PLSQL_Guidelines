@@ -10,7 +10,7 @@ Le linee guida contenute in questo documento sono organizzate attorno a un insie
 
 La **modificabilità** riguarda la facilità con cui il software può essere adattato a nuove esigenze. Include aspetti legati all'architettura, alla logica applicativa e alla gestione dei dati. Un codice difficile da modificare è costoso da mantenere ed è fonte di errori difficili da isolare quando si rende necessario un intervento.
 
-L'**efficienza** descrive la capacità del software di fornire prestazioni adeguate rispetto alle risorse utilizzate — memoria, processore, rete. Scrivere codice efficiente non significa ottimizzare prematuramente ogni istruzione, ma evitare sprechi prevedibili e colli di bottiglia che emergono a scala.
+L'**efficienza** descrive la capacità del software di fornire prestazioni adeguate rispetto alle risorse utilizzate — memoria, processore, rete. Scrivere codice efficiente non significa ottimizzare prematuramente ogni istruzione, ma evitare sprechi prevedibili e colli di bottiglia che tendono a emergere quando il sistema scala.
 
 La **manutenibilità** è forse la caratteristica più rilevante per chi lavora in ambienti di produzione su lungo periodo. Un software manutenibile può essere corretto, migliorato e adattato senza sforzo eccessivo. Si esprime nella comprensibilità del codice, nella sua leggibilità e nella chiarezza delle intenzioni dell'autore: il codice viene letto molto più spesso di quanto venga scritto, e ogni scorciatoia presa durante la scrittura si paga con interessi durante la manutenzione.
 
