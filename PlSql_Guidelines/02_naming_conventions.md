@@ -44,13 +44,14 @@ I prefissi funzionali definiti per questo progetto sono i seguenti:
 | `log_` | Tabelle di audit, tracciamento eventi e log applicativi | `log_user_actions`, `log_api_calls`, `log_errors` |
 | `his_` | Storico dei dati di business: versioni precedenti di record modificati o cancellati | `his_employees`, `his_contract_lines` |
 | `arc_` | Archivio di dati conclusi o scaduti, spostati dalle tabelle operative per motivi di performance | `arc_orders`, `arc_invoices` |
-| `ref_` | Tabelle di decodifica e lookup: domini di valori ammessi, codici, categorie | `ref_countries`, `ref_order_statuses`, `ref_currencies` |
+| `ref_` | Tabelle di decodifica e lookup: domini di valori ammessi, codici, categorie | `ref_countries`, `ref_document_types`, `ref_currencies` |
+| `wfl_` | Definizioni e audit dei workflow: stati, transizioni ammesse, storico dei cambi di stato | `wfl_statuses`, `wfl_transitions`, `wfl_orders_status_log` |
 | `ext_` | Dati ricevuti da sistemi esterni, in attesa di validazione o integrazione | `ext_crm_contacts`, `ext_erp_orders` |
 | `rpt_` | Tabelle pre-aggregate o denormalizzate a supporto della reportistica | `rpt_monthly_sales`, `rpt_user_activity_summary` |
 | `err_` | Tabelle di raccolta degli errori funzionali, usate da processi batch o pipeline ETL | `err_import_rows`, `err_reconciliation` |
 | `xrf_` | Tabelle di cross-reference: mappature tra identificativi di sistemi diversi | `xrf_crm_erp_customers`, `xrf_legacy_product_codes` |
 
-Alcuni di questi prefissi richiedono una distinzione che non è sempre immediata. La differenza tra `log_` e `err_` sta nel destinatario: `log_` raccoglie eventi regolari del flusso applicativo (accessi, chiamate API, transizioni di stato), mentre `err_` raccoglie fallimenti funzionali che richiedono analisi o reprocessing — tipicamente righe scartate da un processo batch. La differenza tra `his_` e `arc_` sta invece nel trigger dello spostamento: `his_` registra ogni versione di un record nel corso della sua vita operativa (storico delle modifiche), mentre `arc_` raccoglie record che hanno completato il loro ciclo di vita e vengono rimossi dalle tabelle operative per motivi di performance o data retention.
+Alcuni di questi prefissi richiedono una distinzione che non è sempre immediata. La differenza tra `log_` e `err_` sta nel destinatario: `log_` raccoglie eventi regolari del flusso applicativo (accessi, chiamate API, transizioni di stato), mentre `err_` raccoglie fallimenti funzionali che richiedono analisi o reprocessing — tipicamente righe scartate da un processo batch. La differenza tra `his_` e `arc_` sta invece nel trigger dello spostamento: `his_` registra ogni versione di un record nel corso della sua vita operativa (storico delle modifiche), mentre `arc_` raccoglie record che hanno completato il loro ciclo di vita e vengono rimossi dalle tabelle operative per motivi di performance o data retention. La differenza tra `ref_` e `wfl_` sta nella natura del valore: `ref_` sono liste di decodifica piatte, mentre `wfl_` raccoglie gli stati come macchine a stati — con le transizioni ammesse e l'audit dei cambi. Il prefisso `wfl_` è volutamente unico per tutto il pillar del workflow, comprese le sue tabelle di storico dei cambi di stato: pur essendo queste ultime log di eventi, si tengono accanto alle definizioni per coesione anziché sotto `log_`. Il dettaglio dei due meccanismi è in `Architettura_DB/lookups.md` e `Architettura_DB/stati_workflow.md`.
 
 La differenza tra `cfg_` e le normali tabelle di dominio non è sempre ovvia, ma il criterio è che una tabella `cfg_` contiene dati che modificano il *comportamento* dell'applicazione — parametri, soglie, template, flag — e che vengono letti dalla logica applicativa per prendere decisioni, non elaborati come dati di business. Le tabelle `wrk_` invece contengono dati transitori legati a un processo specifico: a differenza delle Global Temporary Table, persistono tra le sessioni e possono essere partizionate o indicizzate, ma il loro ciclo di vita è subordinato all'elaborazione che le produce. Le tabelle `ext_` sono concettualmente simili alle `wrk_`, ma il dato ha origine esterna e non è stato ancora validato: trattarle separatamente chiarisce la responsabilità sulla qualità del dato.
 
@@ -68,6 +69,7 @@ Quando si usa sia un prefisso funzionale che uno di progetto, il prefisso di pro
 | Storico modifiche | `his_employees` |
 | Archivio dati conclusi | `arc_orders` |
 | Decodifica/lookup | `ref_countries` |
+| Workflow (stati e transizioni) | `wfl_statuses` |
 | Dati da sistema esterno | `ext_crm_contacts` |
 | Tabella reportistica | `rpt_monthly_sales` |
 | Errori batch | `err_import_rows` |

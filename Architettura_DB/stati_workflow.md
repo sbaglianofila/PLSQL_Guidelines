@@ -1,6 +1,6 @@
 # Stati e workflow
 
-> **Bozza.** Questo documento è una prima stesura da raffinare. Fissa l'impianto e le scelte di fondo, ma diverse decisioni sono ancora aperte e segnalate come tali nell'ultima sezione. Non è ancora un contratto stabile del framework.
+> **Bozza.** Questo documento è una stesura in raffinamento. Fissa l'impianto e le scelte di fondo — la maggior parte delle decisioni è ormai presa (vedi "Decisioni prese in questa passata") e resta un solo nodo aperto, segnalato in fondo. Non è ancora un contratto stabile del framework.
 
 ## Perché gli stati non sono lookup
 
@@ -69,14 +69,20 @@ Le tabelle di definizione descrivono la macchina a stati; qualcuno deve farla ri
 
 Vale la pena chiarire un potenziale doppione. La tabella di audit dei cambiamenti è, a sua volta, una tabella che porterebbe le sette colonne amministrative standard; e le sue colonne `created_by`/`created_at` conterrebbero di fatto la stessa informazione di `changed_by`/`changed_at`, dato che ogni riga di audit nasce nel momento del cambiamento e non viene più modificata. Qui la scelta è tra due strade: appoggiarsi alle colonne amministrative (l'evento è "chi ha creato la riga di audit") oppure tenere colonne esplicite `changed_by`/`changed_at` di dominio. Si adottano le **colonne esplicite**, perché `reason`, `from_status` e `to_status` sono già dati di dominio e avere accanto `changed_by`/`changed_at` esplicite rende la tabella auto-descrittiva senza dover ricordare che qui, eccezionalmente, l'audit di riga coinciderebbe con il dato di business. Le sette colonne amministrative restano comunque presenti (sono lo standard di ogni tabella), ma il significato funzionale del cambiamento si legge nelle colonne esplicite.
 
+## Decisioni prese in questa passata
+
+Tre nodi che nella prima stesura erano aperti sono stati sciolti.
+
+L'**audit dei cambiamenti** è realizzato con tabelle **dedicate per entità** (`wfl_<entità>_status_log`), con foreign key tipizzata verso la riga di business, e non con un contenitore generico: si applica la regola di promozione, privilegiando l'integrità dichiarativa dove conta, come descritto nella sezione dell'audit.
+
+Il **prefisso del pillar** è `wfl_`, per tutti i suoi oggetti — definizioni (`wfl_statuses`, `wfl_transitions`) e audit (`wfl_<entità>_status_log`). Si è scelto `wfl_` e non `wf_` per coerenza con gli altri prefissi funzionali del framework, tutti di tre lettere; e si è preferito tenere anche l'audit sotto `wfl_`, per coesione del pillar, invece di classificarlo sotto `log_`: pur essendo un log di eventi, appartiene concettualmente al workflow ed è comodo trovarlo accanto alle sue definizioni.
+
+Le **transizioni** portano un `allowed_role` opzionale come unica forma di guardia in questa fase. È sufficiente per esprimere "questa transizione la può compiere solo questo ruolo", che copre il bisogno immediato.
+
+## Sviluppi futuri
+
+Un **motore di regole** più espressivo per le transizioni — capace di guardie condizionali sui dati dell'entità, e di azioni o hook richiamati al passaggio di stato (per esempio l'invio di una notifica) — è riconosciuto come evoluzione desiderabile, ma **rimandato e a bassa priorità**. Va sviluppato solo quando un bisogno concreto lo giustifichi: il rischio, altrimenti, è costruire un motore di regole generico che il framework non ha chiesto e che complica senza ripagare. Fino ad allora, la logica specifica di una transizione che ecceda il semplice controllo del ruolo vive nella Table API dell'entità, non nelle tabelle di definizione.
+
 ## Decisioni ancora aperte
 
-Questa bozza fissa l'ossatura ma lascia aperti alcuni nodi, che raffineremo nella prossima passata.
-
-Il primo, e più importante, è **dove vive l'audit dei cambiamenti**. Due strade. Una tabella *generica* unica — con colonne `entity_table` ed `entity_id` che identificano la riga di business — raccoglie in un solo posto la storia di tutti i workflow, al prezzo di perdere la foreign key tipizzata verso l'entità (lo stesso limite delle lookup generiche). In alternativa, una tabella di storia *dedicata per entità* — per esempio una storia degli stati dell'ordine con foreign key pulita verso `orders` — applica la stessa regola di promozione usata altrove: la foreign key tipizzata dove l'integrità conta. La stesura attuale propende per il dedicato-per-entità, ma è la scelta su cui vale la pena ragionare per prima.
-
-Il secondo è **quanto ricche debbano essere le transizioni**. La bozza prevede un `allowed_role` opzionale, ma restano da decidere: se le transizioni debbano poter richiamare azioni o hook (l'invio di una notifica al passaggio di stato, ad esempio), se servano guardie più espressive di un semplice ruolo, e se una transizione possa avere pre-condizioni sui dati dell'entità. Il rischio è opposto: troppo poco e il workflow non serve, troppo e si costruisce un motore di regole generico che il framework non ha chiesto.
-
-Il terzo riguarda il **prefisso dell'audit**. Le definizioni stanno bene sotto `wfl_`; la tabella di storia dei cambiamenti, essendo un log di eventi append-only, si collocherebbe altrettanto bene sotto il prefisso `log_` già previsto per il tracciamento eventi. Va deciso se raggrupparla con le definizioni in `wfl_` per coesione del pillar, o classificarla per natura sotto `log_`.
-
-Il quarto è il **rapporto con le lookup**. Gli stati sono definiti in `wfl_statuses` e non nelle lookup generiche; resta però da decidere se le tabelle di business che portano una colonna di stato debbano referenziare `wfl_statuses` con una foreign key composita (sullo stile di quella descritta in `lookups.md`, ma verso gli stati del workflow), così da vincolare dichiarativamente la colonna di stato ai soli stati di quel workflow.
+Resta un solo nodo da sciogliere nella prossima passata: il **rapporto con le lookup dal lato delle tabelle di business**. Gli stati sono definiti in `wfl_statuses` e non nelle lookup generiche; va però deciso se le tabelle di business che portano una colonna di stato debbano referenziare `wfl_statuses` con una foreign key composita — sullo stile di quella descritta in `lookups.md`, ma verso gli stati del workflow — così da vincolare dichiarativamente la colonna di stato ai soli stati di quel workflow, oppure se lasciare quel controllo alla sola Table API.
