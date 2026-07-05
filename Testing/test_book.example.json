@@ -1,0 +1,107 @@
+{
+  "test_book": {
+    "metadata": {
+      "id": "TB-ORDERS-IMPORT-001",
+      "title": "Order import batch and open-orders API",
+      "project": "#APP#",
+      "release": "1.2.0",
+      "reference": "PR #142 / JIRA ORD-317",
+      "author": "AA",
+      "created_at": "2026-07-01",
+      "environment": "TEST"
+    },
+    "launch": {
+      "prerequisites": [
+        "utPLSQL installed on the target database",
+        "Connected as #APP# on the TEST environment"
+      ],
+      "script": "begin ut.run('#APP#:orders'); end;",
+      "notes": "Run from SQLcl. Use the documentation reporter for a readable output."
+    },
+    "test_cases": [
+      {
+        "id": "TC-01",
+        "title": "Open orders returned only for the given customer",
+        "type": "utplsql",
+        "reference": "#APP#.test_pkg_orders.returns_open_only",
+        "preconditions": "Fixture: customer 1 with one OPEN and one CANCELLED order",
+        "steps": "Call pkg_orders.open_orders_by_customer(1)",
+        "expected_result": "Exactly one row (the OPEN order)",
+        "actual_result": "",
+        "status": "not_run",
+        "notes": ""
+      },
+      {
+        "id": "TC-02",
+        "title": "Null customer id raises a business exception",
+        "type": "utplsql",
+        "reference": "#APP#.test_pkg_orders.raises_on_null_customer",
+        "preconditions": "None",
+        "steps": "Call pkg_orders.open_orders_by_customer(null)",
+        "expected_result": "ORA-20010 is raised",
+        "actual_result": "",
+        "status": "not_run",
+        "notes": ""
+      },
+      {
+        "id": "TC-03",
+        "title": "Front end lists only open orders for the selected customer",
+        "type": "manual",
+        "reference": "",
+        "preconditions": "Test user logged in; customer 1 selected",
+        "steps": "Open the orders panel and read the list",
+        "expected_result": "Only OPEN orders appear",
+        "actual_result": "",
+        "status": "not_run",
+        "notes": ""
+      }
+    ],
+    "control_queries": [
+      {
+        "id": "CQ-01",
+        "category": "object_verification",
+        "description": "No invalid objects in #APP# after deploy",
+        "sql": "select object_name, object_type from all_objects where owner = '#APP#' and status <> 'VALID'",
+        "expected_result": "0 rows",
+        "actual_result": "",
+        "status": "not_run",
+        "notes": ""
+      },
+      {
+        "id": "CQ-02",
+        "category": "data_consistency",
+        "description": "No orders without a matching customer",
+        "sql": "select o.order_id from #APP#.orders o where not exists (select 1 from #APP#.customers c where c.customer_id = o.customer_id)",
+        "expected_result": "0 rows",
+        "actual_result": "",
+        "status": "not_run",
+        "notes": ""
+      },
+      {
+        "id": "CQ-03",
+        "category": "functional_data",
+        "description": "Order header total equals the sum of its lines",
+        "sql": "select o.order_id from #APP#.orders o join #APP#.order_lines l on l.order_id = o.order_id group by o.order_id, o.total_amount having o.total_amount <> sum(l.line_amount)",
+        "expected_result": "0 rows",
+        "actual_result": "",
+        "status": "not_run",
+        "notes": ""
+      },
+      {
+        "id": "CQ-04",
+        "category": "log_reading",
+        "description": "No errors logged by the ORDER_IMPORT batch today",
+        "sql": "select logged_at, error_code, error_message from #APP#.log_errors where process_name = 'ORDER_IMPORT' and logged_at >= trunc(sysdate)",
+        "expected_result": "0 rows",
+        "actual_result": "",
+        "status": "not_run",
+        "notes": ""
+      }
+    ],
+    "sign_off": {
+      "tester": "",
+      "date": "",
+      "outcome": "pending"
+    }
+  }
+}
