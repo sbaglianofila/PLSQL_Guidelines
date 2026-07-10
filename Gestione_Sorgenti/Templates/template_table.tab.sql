@@ -10,13 +10,11 @@ prompt File: <table_name>.tab.sql <start>
 --   <YYYYMMDD> <AA>  Creation
 -- =============================================================================
 
-prompt <table_name>: Creating table
+prompt <TABLE_NAME>: Creating table
 create table <table_name>
-   ( <column_name>  <datatype>  constraint <table_name>_pk primary key
-   , <column_name>  <datatype>  constraint <table_name>_nn_<column_name> not null
+   ( <column_name>  <datatype>      constraint <table_name>_nn_<column_name> not null
+   , <column_name>  <datatype>      constraint <table_name>_nn_<column_name> not null
    -- , <column_name>  <datatype>
-   -- , constraint <table_name>_uk_<column_name> unique (<column_name>)
-   -- , constraint <table_name>_ck_<column_name> check (<condition>)
    -- administrative columns (populated by <table_name>_audit_trg) --------------
    , created_by        varchar2(64 char)  invisible  constraint <table_name>_nn_created_by      not null
    , created_at        timestamp(6)       invisible  constraint <table_name>_nn_created_at      not null
@@ -27,7 +25,24 @@ create table <table_name>
    , row_version       number             default 1  constraint <table_name>_nn_row_version     not null
    );
 
-prompt <table_name>: Adding comments
+prompt <TABLE_NAME>: Adding constraints
+
+alter table <table_name>
+  add constraint <table_name>_pk
+  primary key (<column_name>)
+  using index;
+
+alter table <table_name>
+  add constraint <table_name>_un
+  unique (<column_name>)
+  using index;
+
+
+prompt <TABLE_NAME>: Creating indexes
+-- create index <table_name>_idx_<column_name> on <table_name> (<column_name>);
+
+
+prompt <TABLE_NAME>: Adding comments
 comment on table  <table_name> is '<purpose>';
 comment on column <table_name>.<column_name> is '<column purpose>';
 -- administrative columns (standard on every table; see colonne_amministrative.md)
@@ -38,9 +53,6 @@ comment on column <table_name>.modified_by      is 'Application user of the last
 comment on column <table_name>.modified_at      is 'Timestamp of the last update (invisible; null until first update).';
 comment on column <table_name>.modified_program is 'Program/module of the last update (invisible; null until first update).';
 comment on column <table_name>.row_version      is 'Optimistic-locking row version; incremented by trigger on every change.';
-
-prompt <table_name>: Creating indexes
--- create index <table_name>_idx_<column_name> on <table_name> (<column_name>);
 
 -- Reminder: create the audit trigger <table_name>_audit_trg from
 -- template_trigger_audit.trg.sql to populate the administrative columns.
